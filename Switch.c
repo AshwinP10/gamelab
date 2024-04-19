@@ -13,6 +13,8 @@ void Switch_Init(void){
     IOMUX->SECCFG.PINCM[PA24INDEX] = 0x00040081; // S2 Left
     IOMUX->SECCFG.PINCM[PA31INDEX] = 0x00040081; // S3 Down
     IOMUX->SECCFG.PINCM[PA12INDEX] = 0x00040081; // S4 Right
+
+    GPIOA->DOE31_0 |= ((1 << 28) + (1 << 24) + (1 << 31) + (1 << 12));
   
 }
 // return current state of switches
