@@ -19,50 +19,10 @@
 #include "Switch.h"
 #include "Sound.h"
 #include "images/images.h"
-// ****note to ECE319K students****
-// the data sheet says the ADC does not work when clock is 80 MHz
-// however, the ADC seems to work on my boards at 80 MHz
-// I suggest you try 80MHz, but if it doesn't work, switch to 40MHz
-void PLL_Init(void){ // set phase lock loop (PLL)
-  // Clock_Init40MHz(); // run this line for 40MHz
-  Clock_Init80MHz(0);   // run this line for 80MHz
-}
+#include <math.h>
 
+#define FIX 2
 
-
-
-
-
-
-
-uint32_t M=1;
-uint32_t Random32(void){
-  M = 1664525*M+1013904223;
-  return M;
-}
-uint32_t Random(uint32_t n){
-  return (Random32()>>16)%n;
-}
-
-
-// games  engine runs at 30Hz
-void TIMG12_IRQHandler(void){uint32_t pos,msg;
-  if((TIMG12->CPU_INT.IIDX) == 1){ // this will acknowledge
-    GPIOB->DOUTTGL31_0 = GREEN; // toggle PB27 (minimally intrusive debugging)
-    GPIOB->DOUTTGL31_0 = GREEN; // toggle PB27 (minimally intrusive debugging)
-// game engine goes here
-    // 1) sample slide pot
-    // 2) read input switches
-    // 3) move sprites
-    // 4) start sounds
-    // 5) set semaphore
-    // NO LCD OUTPUT IN INTERRUPT SERVICE ROUTINES
-    GPIOB->DOUTTGL31_0 = GREEN; // toggle PB27 (minimally intrusive debugging)
-  }
-}
-uint8_t TExaS_LaunchPadLogicPB27PB26(void){
-  return (0x80|((GPIOB->DOUT31_0>>26)&0x03));
-}
 
 /*
 typedef enum {English, Spanish, Portuguese, French} Language_t;
@@ -107,8 +67,156 @@ const char *Phrases[4][2]={
 
 };
 
+typedef enum {dead,alive} status_t;
+struct sprite{
+float x; // x coordinate
+float y; // y coordinate
+const uint8_t *images[4]; // ptr->image
+status_t life; // dead/alive
+};
+typedef struct sprite sprite_t;
+
+sprite_t longhorn = {
+    50,                         // Initial x coordinate
+    80,                         // Initial y coordinate
+    { logo0, logo180, logoleft, logoright}, // Image array initialization
+    alive                       // Initial status
+};
+
+
+uint32_t data;
+float thrustx = 0;
+float thrusty = 0;
+uint32_t rot = 0;
+
+// ****note to ECE319K students****
+// the data sheet says the ADC does not work when clock is 80 MHz
+// however, the ADC seems to work on my boards at 80 MHz
+// I suggest you try 80MHz, but if it doesn't work, switch to 40MHz
+void PLL_Init(void){ // set phase lock loop (PLL)
+  // Clock_Init40MHz(); // run this line for 40MHz
+  Clock_Init80MHz(0);   // run this line for 80MHz
+}
+
+
+
+
+
+
+
+
+uint32_t M=1;
+uint32_t Random32(void){
+  M = 1664525*M+1013904223;
+  return M;
+}
+uint32_t Random(uint32_t n){
+  return (Random32()>>16)%n;
+}
+
+
+// games  engine runs at 30Hz
+void TIMG12_IRQHandler(void){uint32_t pos,msg;
+  Switch_Init(); // initialize switches
+  LED_Init(); // initialize LED
+  uint32_t theSwitch = Switch_In();
+
+  if((TIMG12->CPU_INT.IIDX) == 1){ // this will acknowledge
+    GPIOB->DOUTTGL31_0 = GREEN; // toggle PB27 (minimally intrusive debugging)
+    GPIOB->DOUTTGL31_0 = GREEN; // toggle PB27 (minimally intrusive debugging)
+// game engine goes here
+    // 1) sample slide pot
+
+    data = ADCin();
+
+    if (data < 455) { //1
+        thrustx = 0;
+        thrusty = 1;
+        rot = 0;
+    }
+    if (data >= 455 & data <= 910) { //2
+        thrustx = -0.71;
+        thrusty = 0.71;
+    }
+    if (data > 910 & data <= 1356) { //3
+        thrustx = -1;
+        thrusty = 0;
+        rot = 2;
+    }
+    if (data > 1365 & data <= 1820) { //4
+         thrustx = -0.71;
+         thrusty = -0.71;
+    }
+    if (data > 1820 & data <= 2275) { //5
+         thrustx = 0;
+         thrusty = -1;
+         rot = 1;
+    }
+    if (data > 2275 & data <= 2730) { //6
+        thrustx = 0.71;
+        thrusty = -0.71;
+    }
+    if (data > 2730 & data <= 3185) { //7
+        thrustx = 1;
+        thrusty = 0;
+        rot = 3;
+
+    }
+    if (data > 3185 & data <= 3640) { //8
+        thrustx = 0.71;
+        thrusty = 0.71;
+    }
+    if (data > 3640 & data <= 4095) { //9
+        thrustx = 0;
+        thrusty = 1;
+        rot = 0;
+    }
+
+
+
+
+
+
+
+    if ((theSwitch & (1<<28)) != 0) {
+        // Check if the sprite is within the screen boundaries
+        if ((longhorn.x > 5) && (longhorn.x < 115) && (longhorn.y > 5) && (longhorn.y < 155)) {
+            // Calculate the new position
+            int new_x = longhorn.x + thrustx;
+            int new_y = longhorn.y + thrusty;
+
+            // Check if the new position is within the screen boundaries
+            if ((new_x > 5) && (new_x < 115) && (new_y > 5) && (new_y < 155)) {
+                // Update the sprite's position
+                longhorn.x = new_x;
+                longhorn.y = new_y;
+            }
+        }
+    }
+
+
+
+
+
+    // 2) read input switches
+    // 3) move sprites
+    // 4) start sounds
+    // 5) set semaphore
+    // NO LCD OUTPUT IN INTERRUPT SERVICE ROUTINES
+    GPIOB->DOUTTGL31_0 = GREEN; // toggle PB27 (minimally intrusive debugging)
+  }
+}
+uint8_t TExaS_LaunchPadLogicPB27PB26(void){
+  return (0x80|((GPIOB->DOUT31_0>>26)&0x03));
+}
+
+
+
+
+
+
 // use main1 to observe special characters
-int main(void){ // main1
+int main1(void){ // main1
     char l;
   __disable_irq();
   PLL_Init(); // set bus speed
@@ -150,6 +258,14 @@ int main2(void){ // main2
   ST7735_InitPrintf();
     //note: if you colors are weird, see different options for
     // ST7735_InitR(INITR_REDTAB); inside ST7735_InitPrintf()
+
+  ST7735_FillScreen(ST7735_BLACK);
+
+  //ST7735_DrawBitmap(40, 9, logo0, 10,10);
+  //ST7735_DrawBitmap(62, 159, logo180, 10, 10); // player ship bottom
+
+
+  /*
   ST7735_FillScreen(ST7735_BLACK);
   ST7735_DrawBitmap(22, 159, PlayerShip0, 18,8); // player ship bottom
   ST7735_DrawBitmap(53, 151, Bunker0, 18,5);
@@ -175,8 +291,10 @@ int main2(void){ // main2
   ST7735_OutString("Earthling!");
   ST7735_SetCursor(2, 4);
   ST7735_OutUDec(1234);
-  while(1){
-  }
+  */
+
+
+
 }
 
 // use main3 to test switches and LEDs
@@ -186,10 +304,31 @@ int main3(void){ // main3
   LaunchPad_Init();
   Switch_Init(); // initialize switches
   LED_Init(); // initialize LED
+  uint32_t theSwitch = 0;
   while(1){
     // write code to test switches and LEDs
-    
+
+  theSwitch = Switch_In();
+
+
+    if ((theSwitch & ((1 << 28) + (1 << 31))) != 0) {
+        break;
+    }
+
   }
+
+  if((theSwitch & (1<<28)) != 0){
+
+      LED_On(19);
+
+  }
+
+  if((theSwitch & (1<<31)) != 0){
+
+      LED_On(17);
+
+  }
+
 }
 // use main4 to test sound outputs
 int main4(void){ uint32_t last=0,now;
@@ -219,7 +358,7 @@ int main4(void){ uint32_t last=0,now;
   }
 }
 // ALL ST7735 OUTPUT MUST OCCUR IN MAIN
-int main5(void){ // final main
+int main(void){ // final main
   __disable_irq();
   PLL_Init(); // set bus speed
   LaunchPad_Init();
@@ -235,12 +374,27 @@ int main5(void){ // final main
     // initialize interrupts on TimerG12 at 30 Hz
   TimerG12_IntArm(80000000/30,2);
   // initialize all data structures
+
   __enable_irq();
+
+
+
+
+
 
   while(1){
     // wait for semaphore
+
+
+
+
+                ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
+
+
+
        // clear semaphore
        // update ST7735R
     // check for end game or level switch
   }
 }
+
