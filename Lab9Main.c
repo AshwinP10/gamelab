@@ -67,27 +67,71 @@ const char *Phrases[4][2]={
 
 };
 
+uint32_t data;
+float thrustx = 0;
+float thrusty = 0;
+uint32_t rot = 0;
+uint32_t last0=0;
+
 typedef enum {dead,alive} status_t;
+
 struct sprite{
-float x; // x coordinate
-float y; // y coordinate
-const uint8_t *images[4]; // ptr->image
-status_t life; // dead/alive
+
+    float x; // x coordinate
+    float y; // y coordinate
+    const uint8_t *images[8]; // ptr->image
+    status_t life; // dead/alive
 };
 typedef struct sprite sprite_t;
 
 sprite_t longhorn = {
     50,                         // Initial x coordinate
     80,                         // Initial y coordinate
-    { logo0, logo180, logoleft, logoright}, // Image array initialization
+    { logo0, logo180, logoleft, logoright, logoUL, logoDL, logoUR, logoDR}, // Image array initialization
     alive                       // Initial status
 };
 
+struct bulletsprite{
 
-uint32_t data;
-float thrustx = 0;
-float thrusty = 0;
-uint32_t rot = 0;
+    float x; // x coordinate
+    float y; // y coordinate
+    const uint8_t *images[8]; // ptr->image
+    float bulthrustx;
+    float bulthrusty;
+    status_t life; // dead/alive
+};
+
+typedef struct bulletsprite bulletsprite_t;
+
+
+
+bulletsprite_t bullets[10];
+uint8_t bulletIndex = 0;
+
+void firebullet() {
+    // Check if there's space for a new bullet
+    if (bulletIndex < 10) {
+        // Set the new bullet's position to the longhorn's position
+        bullets[bulletIndex].x = longhorn.x;
+        bullets[bulletIndex].y = longhorn.y;
+        // Set the bullet's velocity based on the longhorn's direction
+        bullets[bulletIndex].bulthrustx = thrustx;
+        bullets[bulletIndex].bulthrusty = thrusty;
+        // Activate the bullet
+        bullets[bulletIndex].life = alive;
+        // Move to the next available slot for the next bullet
+        bulletIndex++;
+    }
+}
+
+
+
+
+
+
+
+
+
 
 // ****note to ECE319K students****
 // the data sheet says the ADC does not work when clock is 80 MHz
@@ -137,6 +181,8 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
     if (data >= 455 & data <= 910) { //2
         thrustx = -0.71;
         thrusty = 0.71;
+        rot = 5;
+
     }
     if (data > 910 & data <= 1356) { //3
         thrustx = -1;
@@ -146,6 +192,7 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
     if (data > 1365 & data <= 1820) { //4
          thrustx = -0.71;
          thrusty = -0.71;
+         rot = 4;
     }
     if (data > 1820 & data <= 2275) { //5
          thrustx = 0;
@@ -155,6 +202,7 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
     if (data > 2275 & data <= 2730) { //6
         thrustx = 0.71;
         thrusty = -0.71;
+        rot = 6;
     }
     if (data > 2730 & data <= 3185) { //7
         thrustx = 1;
@@ -165,7 +213,9 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
     if (data > 3185 & data <= 3640) { //8
         thrustx = 0.71;
         thrusty = 0.71;
+        rot = 7;
     }
+
     if (data > 3640 & data <= 4095) { //9
         thrustx = 0;
         thrusty = 1;
@@ -174,7 +224,14 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
 
 
 
+    for (uint32_t i = 0; i < 10; i++){
+        if (bullets[i].life == alive){
+            bullets[i].x += bullets[i].bulthrustx;
+            bullets[i].y += bullets[i].bulthrusty;
 
+
+        }
+    }
 
 
 
@@ -182,8 +239,8 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
         // Check if the sprite is within the screen boundaries
         if ((longhorn.x > 5) && (longhorn.x < 115) && (longhorn.y > 5) && (longhorn.y < 155)) {
             // Calculate the new position
-            int new_x = longhorn.x + thrustx;
-            int new_y = longhorn.y + thrusty;
+            float new_x = longhorn.x + thrustx;
+            float new_y = longhorn.y + thrusty;
 
             // Check if the new position is within the screen boundaries
             if ((new_x > 5) && (new_x < 115) && (new_y > 5) && (new_y < 155)) {
@@ -193,6 +250,15 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
             }
         }
     }
+
+    uint32_t now0 = GPIOA->DIN31_0&(1<<12);
+    if((now0 != 0)&&(last0 == 0)){
+        firebullet();
+    }
+    if((now0 == 0)&&(last0 != 1)){
+
+    }
+    last0 = now0;
 
 
 
@@ -389,6 +455,12 @@ int main(void){ // final main
 
 
                 ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
+                for (uint8_t j = 0; j < 10; j++){
+                    if (bullets[j].life == alive){
+                        ST7735_DrawBitmap(bullets[j].x, bullets[j].y - 5 , bullet, 3,3);
+                    }
+
+                }
 
 
 
@@ -397,4 +469,5 @@ int main(void){ // final main
     // check for end game or level switch
   }
 }
+
 
