@@ -93,7 +93,8 @@ float asteroidMotionX = 0.5;
 float asteroidMotionY = 0.5;
 uint32_t lives = 3;
 uint32_t last0=0;
-uint32_t collisionOccured = 0; // 0 means no, 1 means yes
+uint32_t secondCount = 0;
+
 
 
 typedef enum {dead, dying, alive} status_t;
@@ -168,18 +169,10 @@ void PLL_Init(void){ // set phase lock loop (PLL)
 
 
 
-void TIMG6_IRQHandler(void) {
-    collisionOccured = 0;
+void TIMG8_IRQHandler(void)
+{
+    secondCount += 1; // increased by 1 every .1 second (100 ms)
 }
-
-
-void TIMG8_IRQHandler(void) { // Ensure you dont loose multiple lives in one asteroid collision
-    if (collisionOccured == 1) {
-        lives--;
-        collisionOccured = 0;
-    }
-}
-
 
 
 
@@ -320,9 +313,15 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
 
 
     // CHECK COLLISIONS
-    float asteroidLonghornDistance = sqrt(pow(asteroid.x - longhorn.x, 2) + pow(asteroid.y - longhorn.y, 2));
 
-   
+    float asteroidLonghornDistance = sqrt(pow(asteroid.x - longhorn.x, 2) + pow(asteroid.y - longhorn.y, 2));
+    if ((asteroidLonghornDistance <= 12) && (secondCount >= 50)) // Player had 5 seconds to respond 
+    {
+        lives = lives-1;
+        secondCount = 0;
+    }
+
+
 
 
 
@@ -504,10 +503,10 @@ int main(void){ // final main
   TExaS_Init(0,0,&TExaS_LaunchPadLogicPB27PB26); // PB27 and PB26
     // initialize interrupts on TimerG12 at 30 Hz
   TimerG12_IntArm(80000000/30,2);
+  TimerG8_IntArm(800000000, 0, 1);
   // initialize G6 for periodic interrupt
   // frequency = TimerClock/prescale/period
-  //TimerG6_IntArm(239999999, 1, 1);
-  TimerG8_IntArm(320000000, 1, 1); // Running at 5 seconds, prescale value 0, priority t lowest possible
+
       //Used to ensure you dont lose multiple lives for hitting an asteroid once
 
 
