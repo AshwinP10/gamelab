@@ -10,32 +10,41 @@
 #include "../inc/DAC5.h"
 #include "../inc/Timer.h"
 
-/*
+uint32_t Index;
+
+
 
 void SysTick_IntArm(uint32_t period, uint32_t priority){
   // write this
     // Not sure if this is right
-    Index = 0;
-    SysTick->CTRL = 0;         // disable SysTick during setup
-    SysTick->LOAD = period-1;  // reload value
-    SCB->SHP[1] = SCB->SHP[1]&(~0xC0000000)|priority<<30; // set priority = 1
-    SysTick->VAL = 0;          // any write to current clears it
-    SysTick->CTRL = 0x0007;    // enable SysTick with core clock and interrupts
 
+        //DAC5_Init();          // Port B is DAC
+        Index = 0;
+        SysTick->CTRL = 0;         // disable SysTick during setup
+        SysTick->LOAD = period-1;  // reload value
+        SCB->SHP[1] = SCB->SHP[1]&(~0xC0000000)|priority<<30; // set priority = 1
+        SysTick->VAL = 0;          // any write to current clears it
+        SysTick->CTRL = 0x0007;    // enable SysTick with core clock and interrupts
+    }
 }
 
-*/
+
+
 
 // initialize a 11kHz SysTick, however no sound should be started
 // initialize any global variables
 // Initialize the 5 bit DAC
 void Sound_Init(void){
 // write this
+
+    DACInit();
+    SysTick_IntArm(7272, 1);
   
 }
 void SysTick_Handler(void){ // called at 11 kHz
   // output one value to DAC if a sound is active
-    
+    Index = (Index+1)&0x1F;      // 4,5,6,7,7,7,6,5,4,3,2,1,1,1,2,3,...
+    DAC5_Out(SinWave[Index]);    // output one value each interrupt
 	
 }
 
@@ -51,6 +60,8 @@ void SysTick_Handler(void){ // called at 11 kHz
 // special cases: as you wish to implement
 void Sound_Start(const uint8_t *pt, uint32_t count){
 // write this
+
+
   
 }
 void Sound_Shoot(void){
