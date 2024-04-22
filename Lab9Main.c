@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h> // For random float generator
 #include <ti/devices/msp/msp.h>
 #include "../inc/ST7735.h"
 #include "../inc/Clock.h"
@@ -20,8 +21,10 @@
 #include "Sound.h"
 #include "images/images.h"
 #include <math.h>
+#include <time.h>
 
-#define FIX 2
+#define MAX_BULLETS 100
+#define MAX_ASTEROIDS 20
 
 
 /*
@@ -46,24 +49,47 @@ const char *Phrases[3][4]={
   {Language_English,Language_Spanish,Language_Portuguese,Language_French}
 };
 */
+
+uint32_t M=1;
+uint32_t Random32(void){
+  M = 1664525*M+1013904223;
+  return M;
+}
+uint32_t Random(uint32_t n){
+  return (Random32()>>16)%n;
+}
+float randomFloat(float min, float max) { // Credits: Code for random float gen found on ChatGPT
+    return min + ((float)rand() / RAND_MAX) * (max - min);
+}
+
 //Our Asteroid Language
 typedef enum {English, German} Language_t;
 Language_t currentLanguage = English;
-typedef enum {Welcome, Credits, Score, Language} phrase_t;
-const char Welcome_English[] = "Welcome to \nAsteroids";
-const char Welcome_German[] = "Willkommen \nbei Asteroiden";
-const char Credits_English[] = "By Aadhi MS \nand Ashwin P";
-const char Credits_German[] = "Von Aadhi MS \nund Ashwin P";
+typedef enum {Welcome, Credits, Score, Language, Go, Controls, GameOver, YouLose} phrase_t;
+const char Welcome_English[] = "  Welcome to \n     Asteroids";
+const char Welcome_German[] = "  Willkommen \n     bei Asteroiden";
+const char Credits_English[] = "By Ashwin Prakash \n       and Aadhi MS";
+const char Credits_German[] = "Von Aadhi MS \n      und Aadhi MS";
 const char Score_English[] = "Your score is: ";
 const char Score_German[] = "Dein Ergebnis ist: ";
 const char Language_English[] = "English";
 const char Language_German[] = "Deutsch";
+const char Go_English[] = "GO!";
+const char Go_German[] = "GEHEN!";
+const char GameOver_English[] = "Game Over!";
+const char GameOver_German[] = "Spiel vorbei!";
+const char YouLose_English[] = "You Lose";
+const char YouLose_German[] = "Du Verlierst";
 
-const char *Phrases[4][2]={
-                           {Welcome_English, Welcome_German},
+
+const char *Phrases[7][2]={
+                           {Welcome_English, Welcome_German},//0
                            {Credits_English, Credits_German},
-                           {Score_English, Score_German},
-                           {Language_English, Language_German}
+                           {Score_English, Score_German},//2
+                           {Language_English, Language_German},
+                           {Go_English, Go_German},//4
+                           {GameOver_English, GameOver_German},//5
+                           {YouLose_English, YouLose_German}//6
 
 };
 
@@ -71,9 +97,14 @@ uint32_t data;
 float thrustx = 0;
 float thrusty = 0;
 uint32_t rot = 0;
-uint32_t last0=0;
+uint32_t last0= 0;
+uint32_t deleteasteroid = 0;
+uint8_t lives = 3;
+uint8_t asteroidupdate = 0;
+uint8_t asteroidsdefeated = 0;
+uint8_t alldead = 0;
 
-typedef enum {dead,alive} status_t;
+typedef enum {dead, critical, dying, alive} status_t;
 
 struct sprite{
 
@@ -103,14 +134,31 @@ struct bulletsprite{
 
 typedef struct bulletsprite bulletsprite_t;
 
-
-
-bulletsprite_t bullets[10];
+bulletsprite_t bullets[MAX_BULLETS];
 uint8_t bulletIndex = 0;
+
+struct asteroidsprite{
+
+    float x; // x coordinate
+    float y; // y coordinate
+    const uint8_t *images[8]; // ptr->image
+    float movex;
+    float movey;
+    status_t life; // dead/alive
+};
+
+typedef struct asteroidsprite asteroidsprite_t;
+
+asteroidsprite_t asteroids[MAX_ASTEROIDS];
+uint8_t asteroidIndex = 0;
+
+
+
+
 
 void firebullet() {
     // Check if there's space for a new bullet
-    if (bulletIndex < 10) {
+    if (bulletIndex < MAX_BULLETS) {
         // Set the new bullet's position to the longhorn's position
         bullets[bulletIndex].x = longhorn.x;
         bullets[bulletIndex].y = longhorn.y;
@@ -121,6 +169,17 @@ void firebullet() {
         bullets[bulletIndex].life = alive;
         // Move to the next available slot for the next bullet
         bulletIndex++;
+    }
+}
+
+void createasteroid(){
+    if (asteroidIndex < MAX_ASTEROIDS) {
+        asteroids[asteroidIndex].life = alive;
+        asteroids[asteroidIndex].x = randomFloat(5, 115); // Initialize x coordinate
+        asteroids[asteroidIndex].y = randomFloat(5, 155);
+        asteroids[asteroidIndex].movex = randomFloat(-0.7, 0.7);
+        asteroids[asteroidIndex].movey = randomFloat(-0.7, 0.7);
+        asteroidIndex++;
     }
 }
 
@@ -149,14 +208,7 @@ void PLL_Init(void){ // set phase lock loop (PLL)
 
 
 
-uint32_t M=1;
-uint32_t Random32(void){
-  M = 1664525*M+1013904223;
-  return M;
-}
-uint32_t Random(uint32_t n){
-  return (Random32()>>16)%n;
-}
+
 
 
 // games  engine runs at 30Hz
@@ -173,62 +225,66 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
 
     data = ADCin();
 
-    if (data < 455) { //1
-        thrustx = 0;
-        thrusty = 1;
-        rot = 0;
-    }
-    if (data >= 455 & data <= 910) { //2
-        thrustx = -0.71;
-        thrusty = 0.71;
-        rot = 5;
+            if (data < 455) { //1
+                thrustx = 0;
+                thrusty = 1;
+                rot = 0;
+            }
+            if (data >= 455 & data <= 910) { //2
+                thrustx = -0.71;
+                thrusty = 0.71;
+                rot = 5;
 
-    }
-    if (data > 910 & data <= 1356) { //3
-        thrustx = -1;
-        thrusty = 0;
-        rot = 2;
-    }
-    if (data > 1365 & data <= 1820) { //4
-         thrustx = -0.71;
-         thrusty = -0.71;
-         rot = 4;
-    }
-    if (data > 1820 & data <= 2275) { //5
-         thrustx = 0;
-         thrusty = -1;
-         rot = 1;
-    }
-    if (data > 2275 & data <= 2730) { //6
-        thrustx = 0.71;
-        thrusty = -0.71;
-        rot = 6;
-    }
-    if (data > 2730 & data <= 3185) { //7
-        thrustx = 1;
-        thrusty = 0;
-        rot = 3;
+            }
+            if (data > 910 & data <= 1356) { //3
+                thrustx = -1;
+                thrusty = 0;
+                rot = 2;
+            }
+            if (data > 1365 & data <= 1820) { //4
+                 thrustx = -0.71;
+                 thrusty = -0.71;
+                 rot = 4;
+            }
+            if (data > 1820 & data <= 2275) { //5
+                 thrustx = 0;
+                 thrusty = -1;
+                 rot = 1;
+            }
+            if (data > 2275 & data <= 2730) { //6
+                thrustx = 0.71;
+                thrusty = -0.71;
+                rot = 6;
+            }
+            if (data > 2730 & data <= 3185) { //7
+                thrustx = 1;
+                thrusty = 0;
+                rot = 3;
 
-    }
-    if (data > 3185 & data <= 3640) { //8
-        thrustx = 0.71;
-        thrusty = 0.71;
-        rot = 7;
-    }
+            }
+            if (data > 3185 & data <= 3640) { //8
+                thrustx = 0.71;
+                thrusty = 0.71;
+                rot = 7;
+            }
 
-    if (data > 3640 & data <= 4095) { //9
-        thrustx = 0;
-        thrusty = 1;
-        rot = 0;
-    }
+            if (data > 3640 & data <= 4095) { //9
+                thrustx = 0;
+                thrusty = 1;
+                rot = 0;
+            }
 
 
 
-    for (uint32_t i = 0; i < 10; i++){
+    for (uint32_t i = 0; i < MAX_BULLETS; i++){
         if (bullets[i].life == alive){
-            bullets[i].x += bullets[i].bulthrustx;
-            bullets[i].y += bullets[i].bulthrusty;
+            bullets[i].x += (bullets[i].bulthrustx);
+            bullets[i].y += (bullets[i].bulthrusty);
 
+
+        }
+        if (bullets[i].x < -10 || bullets[i].y < -10 || bullets[i].x > 130 || bullets[i].y > 170){
+            bullets[i].life = dead;
 
         }
     }
@@ -239,8 +295,8 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
         // Check if the sprite is within the screen boundaries
         if ((longhorn.x > 5) && (longhorn.x < 115) && (longhorn.y > 5) && (longhorn.y < 155)) {
             // Calculate the new position
-            float new_x = longhorn.x + thrustx;
-            float new_y = longhorn.y + thrusty;
+            float new_x = longhorn.x + 0.8*thrustx;
+            float new_y = longhorn.y + 0.8*thrusty;
 
             // Check if the new position is within the screen boundaries
             if ((new_x > 5) && (new_x < 115) && (new_y > 5) && (new_y < 155)) {
@@ -251,6 +307,51 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
         }
     }
 
+    for (uint32_t a = 0; a < MAX_ASTEROIDS; a++){
+
+            if (asteroids[a].life == alive){
+
+                    if (asteroids[a].x <= 10) // If asteroid is on edge, change the respective velocity
+                    {
+                        asteroids[a].movex = randomFloat(0.3, 0.7);
+                    }
+                    if (asteroids[a].x >= 110)
+                    {
+                        asteroids[a].movex = randomFloat(-0.7, -0.3);
+                    }
+                    if (asteroids[a].y <= 10)
+                    {
+                        asteroids[a].movey = randomFloat(0.3, 0.7);
+                    }
+                    if (asteroids[a].y >= 150)
+                    {
+                        asteroids[a].movey = randomFloat(-0.7, -0.3);
+                    }
+
+                    asteroids[a].x += asteroids[a].movex; // Update new asteroid locations
+                    asteroids[a].y += asteroids[a].movey;
+
+                    float asteroidLonghornDistance = sqrt(pow(asteroids[a].x - longhorn.x, 2) + pow(asteroids[a].y - longhorn.y, 2));
+                    if (asteroidLonghornDistance < 12){
+                        asteroids[a].life = dead;
+                        deleteasteroid = a;
+                        lives--;
+                        asteroidupdate = 1;
+
+                    }
+                    for (uint32_t k = 0; k < MAX_BULLETS; k++){
+                        float asteroidBulletDistance = sqrt(pow(asteroids[a].x - bullets[k].x, 2) + pow(asteroids[a].y - bullets[k].y, 2));
+                        if (asteroidBulletDistance < 12){
+                                                asteroids[a].life = dead;
+                                                deleteasteroid = a;
+                                                asteroidupdate = 1;
+                                                asteroidsdefeated++;
+
+                        }
+                    }
+            }
+        }
+
     uint32_t now0 = GPIOA->DIN31_0&(1<<12);
     if((now0 != 0)&&(last0 == 0)){
         firebullet();
@@ -259,7 +360,6 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
 
     }
     last0 = now0;
-
 
 
 
@@ -441,33 +541,330 @@ int main(void){ // final main
   TimerG12_IntArm(80000000/30,2);
   // initialize all data structures
 
-  __enable_irq();
+
+     ST7735_SetCursor(3, 5);
+     ST7735_OutString("Choose Language");
+     ST7735_SetCursor(7, 8);
+     ST7735_OutString((char *)Phrases[3][0]);
+     ST7735_SetCursor(5, 9);
+     ST7735_OutString("(Up Button)");
+     ST7735_SetCursor(7, 12);
+     ST7735_OutString((char *)Phrases[3][1]);
+     ST7735_SetCursor(4, 13);
+     ST7735_OutString("(Down Button)");
+     uint32_t theSwitch = 0;
+     uint32_t language = 0;
+     while(1) {
+         theSwitch = Switch_In();
+         if((theSwitch & ((1<<28) + (1<<31))) != 0) {
+             break;
+         }
+     }
+     if((theSwitch & (1<<28)) != 0) {
+         language = 0; //English
+     }
+     if((theSwitch & (1<<31)) != 0) {
+         language = 1; //Dutch
+     }
+     Clock_Delay1ms(2000);
+     ST7735_FillScreen(ST7735_BLACK);
+
+     ST7735_SetCursor(4, 5);
+     ST7735_OutString((char *)Phrases[0][language]);
+     ST7735_SetCursor(2, 8);
+     ST7735_OutString("Slidepot: <^v>");
+     ST7735_SetCursor(2, 9);
+     ST7735_OutString("move(^) shoot(>)");
+     ST7735_SetCursor(3, 12);
+     ST7735_OutString((char *)Phrases[1][language]);
+
+     while(1) {
+              theSwitch = Switch_In();
+              if((theSwitch & ((1<<28) + (1<<31))) != 0) {
+                  break;
+              }
+     }
+
+     ST7735_FillScreen(ST7735_BLACK);
+     ST7735_SetCursor(8, 8);
+     ST7735_OutString("3...");
+     Clock_Delay1ms(500);
+     ST7735_FillScreen(ST7735_BLACK);
+     ST7735_SetCursor(8, 8);
+     ST7735_OutString("2...");
+     Clock_Delay1ms(500);
+     ST7735_FillScreen(ST7735_BLACK);
+     ST7735_SetCursor(8, 8);
+     ST7735_OutString("1...");
+     Clock_Delay1ms(500);
+     ST7735_FillScreen(ST7735_BLACK);
+     ST7735_SetCursor(8, 8);
+     ST7735_OutString((char *)Phrases[4][language]);
+     Clock_Delay1ms(500);
+     ST7735_FillScreen(ST7735_BLACK);
 
 
+     LED_On(19);
+     LED_On(17);
+     LED_On(20);
+
+     __enable_irq();
+     //level 1
+     createasteroid();
+     createasteroid();
+     createasteroid();
+     createasteroid();
 
 
-
-
-  while(1){
+     while(1){
     // wait for semaphore
 
 
 
 
                 ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
-                for (uint8_t j = 0; j < 10; j++){
+                for (uint8_t j = 0; j < MAX_BULLETS; j++){
                     if (bullets[j].life == alive){
-                        ST7735_DrawBitmap(bullets[j].x, bullets[j].y - 5 , bullet, 3,3);
+                        ST7735_DrawBitmap(bullets[j].x+3, bullets[j].y - 5 , bullet, 3,3);
                     }
 
                 }
+                for (uint8_t l = 0; l < MAX_ASTEROIDS; l++){
+                    if (asteroids[l].life == alive){
+                        ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
+                    }
+                    if (asteroidupdate == 1){
+                        ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
+                        asteroidupdate = 0;
+                    }
+
+                }
+
+                if (lives == 2){
+                    LED_Off(20);
+
+
+                }
+                if (lives == 1){
+                    LED_Off(19);
+
+                }
+                if (lives == 0){
+                    LED_Off(17);
+                    ST7735_FillScreen(ST7735_BLACK);
+                    ST7735_SetCursor(8, 8);
+                    ST7735_OutString((char *)Phrases[5][language]);
+                    Clock_Delay1ms(500);
+                    ST7735_FillScreen(ST7735_BLACK);
+
+                    ST7735_SetCursor(8, 8);
+                    ST7735_OutString((char *)Phrases[6][language]);
+                    Clock_Delay1ms(500);
+                    ST7735_FillScreen(ST7735_BLACK);
+                    ST7735_SetCursor(2, 7);
+                    ST7735_OutString((char *)Phrases[2][language]);
+                    ST7735_SetCursor(7, 8);
+                    ST7735_OutUDec(asteroidsdefeated);
+                    while (1){
+                        ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
+                    }
+                  }
+
+                                         alldead = 0;
+                                         asteroidIndex = 0;
+                                         for (uint32_t m = 0; m < MAX_ASTEROIDS; m++){
+                                             if (asteroids[m].life == alive){
+                                                 alldead = 1;
+                                             }
+                                         }
+                                         if (alldead == 0){
+                                             ST7735_FillScreen(ST7735_BLACK);
+                                             ST7735_SetCursor(6, 7);
+                                             ST7735_OutString("Wave 2");
+                                             Clock_Delay1ms(500);
+                                             createasteroid();
+                                             createasteroid();
+                                             createasteroid();
+                                             createasteroid();
+                                             createasteroid();
+                                             createasteroid();
+
+
+                                                  while(1){
+                                                 // wait for semaphore
+
+
+
+
+                                                             ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
+                                                             for (uint8_t j = 0; j < MAX_BULLETS; j++){
+                                                                 if (bullets[j].life == alive){
+                                                                     ST7735_DrawBitmap(bullets[j].x+3, bullets[j].y - 5 , bullet, 3,3);
+                                                                 }
+
+                                                             }
+                                                             for (uint8_t l = 0; l < MAX_ASTEROIDS; l++){
+                                                                 if (asteroids[l].life == alive){
+                                                                     ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
+                                                                 }
+                                                                 if (asteroidupdate == 1){
+                                                                     ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
+                                                                     asteroidupdate = 0;
+                                                                 }
+
+                                                             }
+
+                                                             if (lives == 2){
+                                                                 LED_Off(20);
+
+
+                                                             }
+                                                             if (lives == 1){
+                                                                 LED_Off(19);
+
+                                                             }
+                                                             if (lives == 0){
+                                                                 LED_Off(17);
+                                                                 ST7735_FillScreen(ST7735_BLACK);
+                                                                                      ST7735_SetCursor(8, 8);
+                                                                                      ST7735_OutString((char *)Phrases[5][language]);
+                                                                                      Clock_Delay1ms(500);
+                                                                                      ST7735_FillScreen(ST7735_BLACK);
+
+                                                                                      ST7735_SetCursor(8, 8);
+                                                                                      ST7735_OutString((char *)Phrases[6][language]);
+                                                                                      Clock_Delay1ms(500);
+                                                                                      ST7735_FillScreen(ST7735_BLACK);
+                                                                                      ST7735_SetCursor(2, 7);
+                                                                                      ST7735_OutString((char *)Phrases[2][language]);
+                                                                                      ST7735_SetCursor(7, 8);
+                                                                                      ST7735_OutUDec(asteroidsdefeated);
+                                                                                      while (1){
+                                                                                          ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
+                                                                                      }
+                                                             }
+
+                                                             asteroidIndex = 0;
+                                                             alldead = 0;
+                                                                                                      for (uint32_t m = 0; m < MAX_ASTEROIDS; m++){
+                                                                                                          if (asteroids[m].life == alive){
+                                                                                                              alldead = 1;
+                                                                                                          }
+                                                                                                      }
+                                                                                                      if (alldead == 0){
+                                                                                                          ST7735_FillScreen(ST7735_BLACK);
+                                                                                                          ST7735_SetCursor(6, 7);
+                                                                                                          ST7735_OutString("Wave 3");
+                                                                                                          Clock_Delay1ms(500);
+                                                                                                          createasteroid();
+                                                                                                          createasteroid();
+                                                                                                          createasteroid();
+                                                                                                          createasteroid();
+                                                                                                          createasteroid();
+                                                                                                          createasteroid();
+                                                                                                          createasteroid();
+                                                                                                          createasteroid();
+                                                                                                          createasteroid();
+
+
+
+
+                                                                                                               while(1){
+                                                                                                              // wait for semaphore
+
+
+
+
+                                                                                                                          ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
+                                                                                                                          for (uint8_t j = 0; j < MAX_BULLETS; j++){
+                                                                                                                              if (bullets[j].life == alive){
+                                                                                                                                  ST7735_DrawBitmap(bullets[j].x+3, bullets[j].y - 5 , bullet, 3,3);
+                                                                                                                              }
+
+                                                                                                                          }
+                                                                                                                          for (uint8_t l = 0; l < MAX_ASTEROIDS; l++){
+                                                                                                                              if (asteroids[l].life == alive){
+                                                                                                                                  ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
+                                                                                                                              }
+                                                                                                                              if (asteroidupdate == 1){
+                                                                                                                                  ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
+                                                                                                                                  asteroidupdate = 0;
+                                                                                                                              }
+
+                                                                                                                          }
+
+                                                                                                                          if (lives == 2){
+                                                                                                                              LED_Off(20);
+
+
+                                                                                                                          }
+                                                                                                                          if (lives == 1){
+                                                                                                                              LED_Off(19);
+
+                                                                                                                          }
+                                                                                                                          if (lives == 0){
+                                                                                                                              LED_Off(17);
+                                                                                                                              ST7735_FillScreen(ST7735_BLACK);
+                                                                                                                                                   ST7735_SetCursor(8, 8);
+                                                                                                                                                   ST7735_OutString((char *)Phrases[5][language]);
+                                                                                                                                                   Clock_Delay1ms(500);
+                                                                                                                                                   ST7735_FillScreen(ST7735_BLACK);
+                                                                                                                                                   ST7735_SetCursor(8, 8);
+                                                                                                                                                   ST7735_OutString((char *)Phrases[6][language]);
+                                                                                                                                                   Clock_Delay1ms(500);
+                                                                                                                                                   ST7735_FillScreen(ST7735_BLACK);
+                                                                                                                                                   ST7735_SetCursor(2, 7);
+                                                                                                                                                   ST7735_OutString((char *)Phrases[2][language]);
+                                                                                                                                                   ST7735_SetCursor(7, 8);
+                                                                                                                                                   ST7735_OutUDec(asteroidsdefeated);
+                                                                                                                                                   while (1){
+                                                                                                                                                       ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
+                                                                                                                                                   }
+                                                                                                                          }
+                                                                                                                          for (uint32_t m = 0; m < MAX_ASTEROIDS; m++){
+                                                                                                                              if (asteroids[m].life == alive){
+                                                                                                                              alldead = 1;
+                                                                                                                              }
+                                                                                                                          }
+                                                                                                                          if (alldead == 0){
+                                                                                                                          ST7735_FillScreen(ST7735_BLACK);
+                                                                                                                          ST7735_SetCursor(6, 7);
+                                                                                                                          ST7735_OutString("YOU WIN!");
+                                                                                                                          Clock_Delay1ms(800000);
+
+                                                                                                                          }
+
+
+
+
+
+
+                                                                                                                 // clear semaphore
+                                                                                                                 // update ST7735R
+                                                                                                              // check for end game or level switch
+                                                                                                              }
+                                                                                                      }
+
+
+
+
+                                                    // clear semaphore
+                                                    // update ST7735R
+                                                 // check for end game or level switch
+                                                 }
+                                         }
+
+
+
+
 
 
 
        // clear semaphore
        // update ST7735R
     // check for end game or level switch
-  }
+    }
 }
+
 
 
