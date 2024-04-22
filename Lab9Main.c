@@ -655,7 +655,6 @@ int main(void){ // final main
                   }
 
                   alldead = 0;
-                  asteroidIndex = 0;
                   for (uint32_t m = 0; m < MAX_ASTEROIDS; m++){
                       if (asteroids[m].life == alive){
                             alldead = 1;
@@ -671,6 +670,9 @@ int main(void){ // final main
     ST7735_FillScreen(ST7735_BLACK);
     ST7735_SetCursor(6, 7);
     ST7735_OutString("Wave 2");
+    Clock_Delay1ms(500);
+    ST7735_OutString("      ");
+    ST7735_FillScreen(ST7735_BLACK);
     Clock_Delay1ms(500);
     createasteroid();
     createasteroid();
@@ -733,7 +735,6 @@ int main(void){ // final main
                        ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
                    }
               }
-
                    asteroidIndex = 0;
                    alldead = 0;
                    for (uint32_t m = 0; m < MAX_ASTEROIDS; m++){
@@ -753,8 +754,9 @@ int main(void){ // final main
     ST7735_SetCursor(6, 7);
     ST7735_OutString("Wave 3");
     Clock_Delay1ms(500);
-    createasteroid();
-    createasteroid();
+    ST7735_OutString("      ");
+    ST7735_FillScreen(ST7735_BLACK);
+    Clock_Delay1ms(500);
     createasteroid();
     createasteroid();
     createasteroid();
@@ -816,7 +818,6 @@ int main(void){ // final main
                        ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
                    }
               }
-
                    asteroidIndex = 0;
                    alldead = 0;
                    for (uint32_t m = 0; m < MAX_ASTEROIDS; m++){
@@ -829,7 +830,12 @@ int main(void){ // final main
                          ST7735_FillScreen(ST7735_BLACK);
                          ST7735_SetCursor(6, 7);
                          ST7735_OutString("YOU WIN!");
+                         ST7735_SetCursor(5, 8);
+                         ST7735_OutString((char *)Phrases[2][language]);
+                         ST7735_SetCursor(7, 9);
+                         ST7735_OutUDec(asteroidsdefeated);
                          Clock_Delay1ms(800000);
+
 
                    }
 
@@ -837,4 +843,3 @@ int main(void){ // final main
 
 
 }
-
