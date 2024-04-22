@@ -11,7 +11,8 @@
 #include "../inc/Timer.h"
 
 uint32_t Index;
-
+uint32_t Size; 
+uint32_t soundPointer; 
 
 
 void SysTick_IntArm(uint32_t period, uint32_t priority){
@@ -43,8 +44,12 @@ void Sound_Init(void){
 }
 void SysTick_Handler(void){ // called at 11 kHz
   // output one value to DAC if a sound is active
-    Index = (Index+1)&0x1F;      // 4,5,6,7,7,7,6,5,4,3,2,1,1,1,2,3,...
-    DAC5_Out(SinWave[Index]);    // output one value each interrupt
+    if (Index < Size){
+        DAC_Out(curSound);    // output one value each interrupt
+        Index++;
+        SoundPointer++;
+    }
+    
 	
 }
 
@@ -60,6 +65,11 @@ void SysTick_Handler(void){ // called at 11 kHz
 // special cases: as you wish to implement
 void Sound_Start(const uint8_t *pt, uint32_t count){
 // write this
+    Index = 0;
+    Size = count; 
+    soundPointer = pt;
+    SysTick->LOAD = period-1;
+    SysTick->VAL = 0; 
 
 
 
