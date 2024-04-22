@@ -62,22 +62,27 @@ void Sound_Start(const uint8_t *pt, uint32_t count){
 // write this
 
 
+
   
 }
 void Sound_Shoot(void){
 // write this
+    Sound_Start(shoot, 4080);
   
 }
 void Sound_Killed(void){
 // write this
+    Sound_Start(invaderkilled, 3377);
   
 }
 void Sound_Explosion(void){
 // write this
+    Sound_Start(explosion, 2000);
  
 }
 
 void Sound_Fastinvader1(void){
+    Sound_Start(fastinvader, 982);
   
 }
 void Sound_Fastinvader2(void){
