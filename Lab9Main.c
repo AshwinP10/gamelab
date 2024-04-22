@@ -167,6 +167,7 @@ void firebullet() {
         bullets[bulletIndex].bulthrusty = thrusty;
         // Activate the bullet
         bullets[bulletIndex].life = alive;
+        Sound_Shoot();
         // Move to the next available slot for the next bullet
         bulletIndex++;
     }
@@ -471,27 +472,21 @@ int main3(void){ // main3
   Switch_Init(); // initialize switches
   LED_Init(); // initialize LED
   uint32_t theSwitch = 0;
+  int t = 1;
+  Sound_Init();
   while(1){
     // write code to test switches and LEDs
 
-  theSwitch = Switch_In();
 
 
-    if ((theSwitch & ((1 << 28) + (1 << 31))) != 0) {
-        break;
-    }
+      if (t==1){
+        Sound_Shoot();
+        t = 0;
+      }
 
-  }
 
-  if((theSwitch & (1<<28)) != 0){
 
-      LED_On(19);
 
-  }
-
-  if((theSwitch & (1<<31)) != 0){
-
-      LED_On(17);
 
   }
 
@@ -506,21 +501,10 @@ int main4(void){ uint32_t last=0,now;
   Sound_Init();  // initialize sound
   TExaS_Init(ADC0,6,0); // ADC1 channel 6 is PB20, TExaS scope
   __enable_irq();
+  Sound_Shoot();
+
   while(1){
-    now = Switch_In(); // one of your buttons
-    if((last == 0)&&(now == 1)){
-      Sound_Shoot(); // call one of your sounds
-    }
-    if((last == 0)&&(now == 2)){
-      Sound_Killed(); // call one of your sounds
-    }
-    if((last == 0)&&(now == 4)){
-      Sound_Explosion(); // call one of your sounds
-    }
-    if((last == 0)&&(now == 8)){
-      Sound_Fastinvader1(); // call one of your sounds
-    }
-    // modify this to test all your sounds
+
   }
 }
 // ALL ST7735 OUTPUT MUST OCCUR IN MAIN
