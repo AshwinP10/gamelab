@@ -13,19 +13,21 @@
 uint32_t Index;
 uint32_t period;
 uint32_t priority;
+uint32_t sound;
 
-const uint8_t SinWave[32] = {16,19,22,24,27,28,30,31,31,31,30,28,27,24,22,19,16,13,10,8,5,4,2,1,1,1,2,4,5,8,10,13};
+
 
 
 
 void SysTick_IntArm(uint32_t period, uint32_t priority){
   // write this
     // Not sure if this is right
-    Index = 0;
+
     SysTick->CTRL = 0;         // disable SysTick during setup
     SysTick->LOAD = period-1;  // reload value
-    SCB->SHP[1] = SCB->SHP[1]&(~0xC0000000)|priority<<30; // set priority = 1
     SysTick->VAL = 0;          // any write to current clears it
+    SCB->SHP[1] = SCB->SHP[1]&(~0xC0000000)|priority<<30; // set priority = 1
+
     SysTick->CTRL = 0x0007;    // enable SysTick with core clock and interrupts
 
 }
@@ -37,19 +39,26 @@ void SysTick_IntArm(uint32_t period, uint32_t priority){
 // Initialize the 5 bit DAC
 void Sound_Init(void){
         DAC5_Init();
-        Index = 0;
-
-        SysTick->CTRL = 0;         // disable SysTick during setup
-        SysTick->LOAD = 7271;  // reload value
-        SCB->SHP[1] = SCB->SHP[1]&(~0xC0000000)|priority<<30; // set priority = 1
-        SysTick->VAL = 0;          // any write to current clears it
-        SysTick->CTRL = 0x0007;    // enable SysTick with core clock and interrupts
+        SysTick_IntArm(7272, 1);
+        SysTick->CTRL = 0;
   
 }
+
+volatile uint8_t *SoundSlct;
+volatile uint32_t SoundNumber;
+
 void SysTick_Handler(void){ // called at 11 kHz
   // output one value to DAC if a sound is active
-    Index = (Index+1)&0x1F;      // 4,5,6,7,7,7,6,5,4,3,2,1,1,1,2,3,...
-    DAC5_Out(SinWave[Index]);    // output one value each interrupt
+    if(SoundNumber){
+        DAC5_Out(*SoundSlct);
+        SoundSlct++;
+        SoundNumber--;
+    }
+    else {
+        SysTick->CTRL = 0;
+    }
+
+
 
 }
 
@@ -65,16 +74,18 @@ void SysTick_Handler(void){ // called at 11 kHz
 // special cases: as you wish to implement
 void Sound_Start(const uint8_t *pt, uint32_t count){
 
-    //SysTick->LOAD = period-1;
-    SysTick->VAL = 0;
-  
+    SoundSlct = pt;
+    SoundNumber = count;
+    SysTick -> CTRL = 0x07;
+
+
 }
 
 void Sound_Shoot(void){
-    Sound_Start(SinWave,32);
-    //Index = (Index+1)&0x1F;      // 4,5,6,7,7,7,6,5,4,3,2,1,1,1,2,3,...
-    //DAC5_Out(SinWave[Index]);    // output one value each interrupt
-}
+    uint8_t *shootpt;
+    shootpt = &shoot[0];
+    Sound_Start(shootpt,4080);
 
+}
 
 
