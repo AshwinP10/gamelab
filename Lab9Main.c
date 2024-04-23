@@ -22,6 +22,7 @@
 #include "images/images.h"
 #include <math.h>
 #include <time.h>
+#include "../inc/DAC.c"
 
 #define MAX_BULLETS 100
 #define MAX_ASTEROIDS 20
@@ -80,16 +81,19 @@ const char GameOver_English[] = "Game Over!";
 const char GameOver_German[] = "Spiel vorbei!";
 const char YouLose_English[] = "You Lose";
 const char YouLose_German[] = "Du Verlierst";
+const char YouWin_English[] = "You Win!";
+const char YouWin_German[] = "Du gewinnst";
 
 
-const char *Phrases[7][2]={
+const char *Phrases[8][2]={
                            {Welcome_English, Welcome_German},//0
                            {Credits_English, Credits_German},
                            {Score_English, Score_German},//2
                            {Language_English, Language_German},
                            {Go_English, Go_German},//4
                            {GameOver_English, GameOver_German},//5
-                           {YouLose_English, YouLose_German}//6
+                           {YouLose_English, YouLose_German},//6
+                           {YouWin_English, YouWin_German}
 
 };
 
@@ -113,10 +117,11 @@ struct sprite{
     const uint8_t *images[8]; // ptr->image
     status_t life; // dead/alive
 };
+
 typedef struct sprite sprite_t;
 
 sprite_t longhorn = {
-    50,                         // Initial x coordinate
+    60,                         // Initial x coordinate
     80,                         // Initial y coordinate
     { logo0, logo180, logoleft, logoright, logoUL, logoDL, logoUR, logoDR}, // Image array initialization
     alive                       // Initial status
@@ -153,7 +158,24 @@ asteroidsprite_t asteroids[MAX_ASTEROIDS];
 uint8_t asteroidIndex = 0;
 
 
+struct boss_sprite{
 
+    float x; // x coordinate
+    float y; // y coordinate
+    const uint8_t *images; // ptr->image
+    status_t life; // dead/alive
+    uint8_t hp;
+
+};
+typedef struct boss_sprite boss_sprite_t;
+
+boss_sprite_t patt = {
+    10,                         // Initial x coordinate
+    10,                         // Initial y coordinate
+    yalepatt, // Image array initialization
+    dead,                     // Initial status
+    20
+};
 
 
 void firebullet() {
@@ -176,13 +198,25 @@ void firebullet() {
 void createasteroid(){
     if (asteroidIndex < MAX_ASTEROIDS) {
         asteroids[asteroidIndex].life = alive;
-        asteroids[asteroidIndex].x = randomFloat(5, 115); // Initialize x coordinate
-        asteroids[asteroidIndex].y = randomFloat(5, 155);
+        asteroids[asteroidIndex].x = 50;
+        asteroids[asteroidIndex].y = 80;
+
+        while ( (asteroids[asteroidIndex].x > 40) && (asteroids[asteroidIndex].x  < 80) ){
+            asteroids[asteroidIndex].x = randomFloat(5, 115); // Initialize x coordinate
+        }
+
+        while ( (asteroids[asteroidIndex].y > 60) && (asteroids[asteroidIndex].y  < 100) ){
+                    asteroids[asteroidIndex].y = randomFloat(5, 155); // Initialize x coordinate
+        }
+
         asteroids[asteroidIndex].movex = randomFloat(-0.7, 0.7);
         asteroids[asteroidIndex].movey = randomFloat(-0.7, 0.7);
         asteroidIndex++;
     }
 }
+
+
+
 
 
 
@@ -237,7 +271,7 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
                 rot = 5;
 
             }
-            if (data > 910 & data <= 1356) { //3
+            if (data > 910 & data <= 1365) { //3
                 thrustx = -1;
                 thrusty = 0;
                 rot = 2;
@@ -314,19 +348,19 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
 
                     if (asteroids[a].x <= 10) // If asteroid is on edge, change the respective velocity
                     {
-                        asteroids[a].movex = randomFloat(0.3, 0.7);
+                        asteroids[a].movex = randomFloat(0.5, 1.0);
                     }
                     if (asteroids[a].x >= 110)
                     {
-                        asteroids[a].movex = randomFloat(-0.7, -0.3);
+                        asteroids[a].movex = randomFloat(-1.0, -0.5);
                     }
                     if (asteroids[a].y <= 10)
                     {
-                        asteroids[a].movey = randomFloat(0.3, 0.7);
+                        asteroids[a].movey = randomFloat(0.5, 1.0);
                     }
                     if (asteroids[a].y >= 150)
                     {
-                        asteroids[a].movey = randomFloat(-0.7, -0.3);
+                        asteroids[a].movey = randomFloat(-1.0, -0.5);
                     }
 
                     asteroids[a].x += asteroids[a].movex; // Update new asteroid locations
@@ -515,13 +549,13 @@ int main(void){ // final main
   PLL_Init(); // set bus speed
   LaunchPad_Init();
   ST7735_InitPrintf();
-    //note: if you colors are weird, see different options for                                                        
+    //note: if you colors are weird, see different options for
     // ST7735_InitR(INITR_REDTAB); inside ST7735_InitPrintf()
   ST7735_FillScreen(ST7735_BLACK);
   ADCinit();     //PB18 = ADC1 channel 5, slidepot
   Switch_Init(); // initialize switches
   LED_Init();    // initialize LED
-  Sound_Init();  // initialize sound                                                                                                                   
+  Sound_Init();  // initialize sound
   TExaS_Init(0,0,&TExaS_LaunchPadLogicPB27PB26); // PB27 and PB26
     // initialize interrupts on TimerG12 at 30 Hz
   TimerG12_IntArm(80000000/30,2);
@@ -641,6 +675,8 @@ int main(void){ // final main
                 }
                 if (lives == 0){
                     LED_Off(17);
+                    longhorn.x = 60;
+                    longhorn.y = 100;
                     ST7735_FillScreen(ST7735_BLACK);
                     ST7735_SetCursor(8, 8);
                     ST7735_OutString((char *)Phrases[5][language]);
@@ -678,6 +714,8 @@ int main(void){ // final main
     ST7735_OutString("Wave 2");
     Clock_Delay1ms(500);
     ST7735_OutString("      ");
+    longhorn.x = 60;
+    longhorn.y = 100;
     ST7735_FillScreen(ST7735_BLACK);
     Clock_Delay1ms(500);
     createasteroid();
@@ -686,6 +724,7 @@ int main(void){ // final main
     createasteroid();
     createasteroid();
     createasteroid();
+
 
 
     while(1){
@@ -727,6 +766,8 @@ int main(void){ // final main
               }
               if (lives == 0){
                    LED_Off(17);
+                   longhorn.x = 60;
+                   longhorn.y = 100;
                    ST7735_FillScreen(ST7735_BLACK);
                    ST7735_SetCursor(8, 8);
                    ST7735_OutString((char *)Phrases[5][language]);
@@ -765,6 +806,8 @@ int main(void){ // final main
     ST7735_OutString("Wave 3");
     Clock_Delay1ms(500);
     ST7735_OutString("      ");
+    longhorn.x = 60;
+    longhorn.y = 100;
     ST7735_FillScreen(ST7735_BLACK);
     Clock_Delay1ms(500);
     createasteroid();
@@ -814,6 +857,8 @@ int main(void){ // final main
               }
               if (lives == 0){
                    LED_Off(17);
+                   longhorn.x = 60;
+                   longhorn.y = 100;
                    ST7735_FillScreen(ST7735_BLACK);
                    ST7735_SetCursor(8, 8);
                    ST7735_OutString((char *)Phrases[5][language]);
@@ -844,7 +889,8 @@ int main(void){ // final main
                          ST7735_FillScreen(ST7735_BLACK);
                          ST7735_SetCursor(1, 7);
                          //ST7735_OutString("YOU WIN!");
-                         ST7735_OutString((char *)Phrases[5][language]);
+                         ST7735_OutString((char *)Phrases[8][language]);
+
                          ST7735_SetCursor(1, 8);
                          ST7735_OutString((char *)Phrases[2][language]);
                          ST7735_SetCursor(1, 9);
