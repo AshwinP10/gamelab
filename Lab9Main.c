@@ -337,6 +337,7 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
                         asteroids[a].life = dead;
                         deleteasteroid = a;
                         lives--;
+                        Sound_Death();
                         asteroidupdate = 1;
 
                     }
@@ -347,6 +348,7 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
                                                 deleteasteroid = a;
                                                 asteroidupdate = 1;
                                                 asteroidsdefeated++;
+                                                Sound_Explosion();
 
                         }
                     }
@@ -513,13 +515,13 @@ int main(void){ // final main
   PLL_Init(); // set bus speed
   LaunchPad_Init();
   ST7735_InitPrintf();
-    //note: if you colors are weird, see different options for
+    //note: if you colors are weird, see different options for                                                        
     // ST7735_InitR(INITR_REDTAB); inside ST7735_InitPrintf()
   ST7735_FillScreen(ST7735_BLACK);
   ADCinit();     //PB18 = ADC1 channel 5, slidepot
   Switch_Init(); // initialize switches
   LED_Init();    // initialize LED
-  Sound_Init();  // initialize sound
+  Sound_Init();  // initialize sound                                                                                                                   
   TExaS_Init(0,0,&TExaS_LaunchPadLogicPB27PB26); // PB27 and PB26
     // initialize interrupts on TimerG12 at 30 Hz
   TimerG12_IntArm(80000000/30,2);
@@ -840,13 +842,15 @@ int main(void){ // final main
                    if (alldead == 0){
 
                          ST7735_FillScreen(ST7735_BLACK);
-                         ST7735_SetCursor(6, 7);
-                         ST7735_OutString("YOU WIN!");
-                         ST7735_SetCursor(5, 8);
+                         ST7735_SetCursor(1, 7);
+                         //ST7735_OutString("YOU WIN!");
+                         ST7735_OutString((char *)Phrases[5][language]);
+                         ST7735_SetCursor(1, 8);
                          ST7735_OutString((char *)Phrases[2][language]);
-                         ST7735_SetCursor(7, 9);
+                         ST7735_SetCursor(1, 9);
                          ST7735_OutUDec(asteroidsdefeated);
                          Clock_Delay1ms(800000);
+
 
 
                    }
