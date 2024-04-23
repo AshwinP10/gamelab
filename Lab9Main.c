@@ -103,7 +103,7 @@ uint8_t lives = 3;
 uint8_t asteroidupdate = 0;
 uint8_t asteroidsdefeated = 0;
 uint8_t alldead = 0;
-
+uint32_t deletebullet = 0;
 
 typedef enum {dead, critical, dying, alive} status_t;
 
@@ -333,11 +333,14 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
                     asteroids[a].x += asteroids[a].movex; // Update new asteroid locations
                     asteroids[a].y += asteroids[a].movey;
 
+
                     float asteroidLonghornDistance = sqrt(pow(asteroids[a].x - longhorn.x, 2) + pow(asteroids[a].y - longhorn.y, 2));
                     if (asteroidLonghornDistance < 12){
                         asteroids[a].life = dead;
                         deleteasteroid = a;
                         lives--;
+                        Sound_Death();
+
                         asteroidupdate = 1;
 
                     }
@@ -346,7 +349,9 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
                         if (asteroidBulletDistance < 12){
                                                 asteroids[a].life = dead;
                                                 deleteasteroid = a;
+                                                deletebullet = k;
                                                 asteroidupdate = 1;
+                                                Sound_Explosion();
                                                 asteroidsdefeated++;
 
                         }
@@ -622,12 +627,13 @@ int main(void){ // final main
                         ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
                     }
                     if (asteroidupdate == 1){
-                        priorX = asteroids[deleteasteroid].x;
-                        priorY = asteroids[deleteasteroid].y;
+                        priorX = asteroids[deleteasteroid].x - 5;
+                        priorY = asteroids[deleteasteroid].y - 5;
                         ST7735_DrawBitmap(priorX, priorY, AsteroidExplode, 15, 15);
                         ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
                         Clock_Delay1ms(50);
                         ST7735_DrawBitmap(priorX, priorY, AsteroidGone, 15, 15);
+                        ST7735_DrawBitmap(bullets[deletebullet].x+3, bullets[deletebullet].y - 5 , bulletGone, 3,3);
                         asteroidupdate = 0;
                     }
 
@@ -709,12 +715,13 @@ int main(void){ // final main
                       ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
                   }
                   if (asteroidupdate == 1){
-                      priorX = asteroids[deleteasteroid].x;
-                      priorY = asteroids[deleteasteroid].y;
+                      priorX = asteroids[deleteasteroid].x - 5;
+                      priorY = asteroids[deleteasteroid].y - 5;
                       ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
                       ST7735_DrawBitmap(priorX, priorY, AsteroidExplode, 15, 15);
                       Clock_Delay1ms(50);
                       ST7735_DrawBitmap(priorX, priorY, AsteroidGone, 15, 15);
+                      ST7735_DrawBitmap(bullets[deletebullet].x+3, bullets[deletebullet].y - 5 , bulletGone, 3,3);
                       asteroidupdate = 0;
                   }
 
@@ -797,12 +804,14 @@ int main(void){ // final main
                       ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
                   }
                   if (asteroidupdate == 1){
-                      priorX = asteroids[deleteasteroid].x;
-                      priorY = asteroids[deleteasteroid].y;
+                      priorX = asteroids[deleteasteroid].x - 5;
+                      priorY = asteroids[deleteasteroid].y - 5;
                       ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
                       ST7735_DrawBitmap(priorX, priorY, AsteroidExplode, 15, 15);
                       Clock_Delay1ms(50);
                       ST7735_DrawBitmap(priorX, priorY, AsteroidGone, 15, 15);
+                      ST7735_DrawBitmap(bullets[deletebullet].x+3, bullets[deletebullet].y - 5 , bulletGone, 3,3);
+
                       asteroidupdate = 0;
                   }
 
