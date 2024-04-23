@@ -41,7 +41,7 @@ void Sound_Init(void){
         DAC5_Init();
         SysTick_IntArm(7272, 1);
         SysTick->CTRL = 0;
-  
+
 }
 
 volatile uint8_t *SoundSlct;
@@ -63,7 +63,7 @@ void SysTick_Handler(void){ // called at 11 kHz
 }
 
 //******* Sound_Start ************
-// This function does not output to the DAC. 
+// This function does not output to the DAC.
 // Rather, it sets a pointer and counter, and then enables the SysTick interrupt.
 // It starts the sound, and the SysTick ISR does the output
 // feel free to change the parameters
@@ -88,4 +88,17 @@ void Sound_Shoot(void){
 
 }
 
+void Sound_Explosion(void){
+    uint8_t *explosionpt;
+    explosionpt = &explosion[0];
+    Sound_Start(explosionpt,2000);
 
+}
+
+
+void Sound_Death(void){
+    uint8_t * highpitchpt;
+    highpitchpt = & highpitch[0];
+    Sound_Start( highpitchpt,1802);
+
+}
