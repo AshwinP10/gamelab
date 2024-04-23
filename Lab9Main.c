@@ -104,6 +104,7 @@ uint8_t asteroidupdate = 0;
 uint8_t asteroidsdefeated = 0;
 uint8_t alldead = 0;
 
+
 typedef enum {dead, critical, dying, alive} status_t;
 
 struct sprite{
@@ -525,6 +526,9 @@ int main(void){ // final main
   TimerG12_IntArm(80000000/30,2);
   // initialize all data structures
 
+  float priorX = 0;
+  float priorY = 0;
+
 
      ST7735_SetCursor(3, 5);
      ST7735_OutString("Choose Language");
@@ -618,9 +622,12 @@ int main(void){ // final main
                         ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
                     }
                     if (asteroidupdate == 1){
-                        ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidExplode, 15, 15);
-                        Clock_Delay1ms(30);
+                        priorX = asteroids[deleteasteroid].x;
+                        priorY = asteroids[deleteasteroid].y;
+                        ST7735_DrawBitmap(priorX, priorY, AsteroidExplode, 15, 15);
                         ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
+                        Clock_Delay1ms(50);
+                        ST7735_DrawBitmap(priorX, priorY, AsteroidGone, 15, 15);
                         asteroidupdate = 0;
                     }
 
@@ -702,9 +709,12 @@ int main(void){ // final main
                       ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
                   }
                   if (asteroidupdate == 1){
-                      ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidExplode, 15, 15);
-                      Clock_Delay1ms(30);
+                      priorX = asteroids[deleteasteroid].x;
+                      priorY = asteroids[deleteasteroid].y;
                       ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
+                      ST7735_DrawBitmap(priorX, priorY, AsteroidExplode, 15, 15);
+                      Clock_Delay1ms(50);
+                      ST7735_DrawBitmap(priorX, priorY, AsteroidGone, 15, 15);
                       asteroidupdate = 0;
                   }
 
@@ -787,9 +797,12 @@ int main(void){ // final main
                       ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
                   }
                   if (asteroidupdate == 1){
-                      ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidExplode, 15, 15);
-                      Clock_Delay1ms(30);
+                      priorX = asteroids[deleteasteroid].x;
+                      priorY = asteroids[deleteasteroid].y;
                       ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
+                      ST7735_DrawBitmap(priorX, priorY, AsteroidExplode, 15, 15);
+                      Clock_Delay1ms(50);
+                      ST7735_DrawBitmap(priorX, priorY, AsteroidGone, 15, 15);
                       asteroidupdate = 0;
                   }
 
@@ -834,11 +847,12 @@ int main(void){ // final main
                    if (alldead == 0){
 
                          ST7735_FillScreen(ST7735_BLACK);
-                         ST7735_SetCursor(6, 7);
-                         ST7735_OutString("YOU WIN!");
-                         ST7735_SetCursor(5, 8);
+                         ST7735_SetCursor(1, 7);
+                         //ST7735_OutString("YOU WIN!");
+                         ST7735_OutString((char *)Phrases[5][language]);
+                         ST7735_SetCursor(1, 8);
                          ST7735_OutString((char *)Phrases[2][language]);
-                         ST7735_SetCursor(7, 9);
+                         ST7735_SetCursor(1, 9);
                          ST7735_OutUDec(asteroidsdefeated);
                          Clock_Delay1ms(800000);
 
