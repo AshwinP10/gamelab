@@ -52,6 +52,7 @@ const char *Phrases[3][4]={
 */
 
 uint32_t M=1;
+uint32_t systickSeed = 1;
 uint32_t Random32(void){
   M = 1664525*M+1013904223;
   return M;
@@ -59,9 +60,13 @@ uint32_t Random32(void){
 uint32_t Random(uint32_t n){
   return (Random32()>>16)%n;
 }
+
 float randomFloat(float min, float max) { // Credits: Code for random float gen found on ChatGPT
+
     return min + ((float)rand() / RAND_MAX) * (max - min);
 }
+
+
 
 //Our Asteroid Language
 typedef enum {English, German} Language_t;
@@ -561,7 +566,38 @@ int main(void){ // final main
   TimerG12_IntArm(80000000/30,2);
   // initialize all data structures
 
+     // Menu screen
+     uint32_t theSwitch = 0;
+     uint32_t starLimit = 0;
+     while (starLimit <70)
+     {
+         ST7735_DrawBitmap(randomFloat(5,120), randomFloat(5,155), star, 2, 2);
+         starLimit++;
+     }
+     ST7735_DrawBitmap(16, 70, AsteroidsMenu, 96, 10);
+     ST7735_SetCursor(3, 8);
+     ST7735_OutString("Press Any Button");
+     ST7735_DrawBitmap(16, 70, AsteroidsMenu, 96, 10);
+     ST7735_DrawBitmap(59, 115, logo0, 10, 10);
+     ST7735_DrawBitmap(10, 28, AsteroidExplode, 15, 15); // Top left
+     ST7735_DrawBitmap(103, 127, AsteroidExplode, 15, 15); // Bottom Right
+     ST7735_DrawBitmap(47, 132, AsteroidExplode, 15, 15);
+     ST7735_DrawBitmap(14, 131, Asteroid, 15, 15);
+     ST7735_DrawBitmap(101, 31, Asteroid, 15, 15);
+     ST7735_DrawBitmap(61, 37, Asteroid, 15, 15);
 
+     while(1) {
+              theSwitch = Switch_In();
+              if((theSwitch & ((1<<28) + (1<<31)) + (1<<24) + (1<<12)) != 0) {
+                  break;
+              }
+          }
+     systickSeed = SysTick->VAL; // Seed the random gen
+     Clock_Delay1ms(900);
+     ST7735_FillScreen(ST7735_BLACK);
+
+
+     // Language Select
      ST7735_SetCursor(3, 5);
      ST7735_OutString("Choose Language");
      ST7735_SetCursor(7, 8);
@@ -572,7 +608,7 @@ int main(void){ // final main
      ST7735_OutString((char *)Phrases[3][1]);
      ST7735_SetCursor(4, 13);
      ST7735_OutString("(Down Button)");
-     uint32_t theSwitch = 0;
+     theSwitch = 0;
      uint32_t language = 0;
      while(1) {
          theSwitch = Switch_In();
@@ -889,7 +925,7 @@ int main(void){ // final main
                          ST7735_FillScreen(ST7735_BLACK);
                          ST7735_SetCursor(1, 7);
                          //ST7735_OutString("YOU WIN!");
-                         ST7735_OutString((char *)Phrases[8][language]);
+                         ST7735_OutString((char *)Phrases[7][language]);
 
                          ST7735_SetCursor(1, 8);
                          ST7735_OutString((char *)Phrases[2][language]);
