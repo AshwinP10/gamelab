@@ -69,8 +69,8 @@ Language_t currentLanguage = English;
 typedef enum {Welcome, Credits, Score, Language, Go, Controls, GameOver, YouLose} phrase_t;
 const char Welcome_English[] = "  Welcome to \n     Asteroids";
 const char Welcome_German[] = "  Willkommen \n     bei Asteroiden";
-const char Credits_English[] = "By Ashwin Prakash \n       and Aadhi MS";
-const char Credits_German[] = "Von Aadhi MS \n      und Aadhi MS";
+const char Credits_English[] = "By Ashwin Prakash \n   and Aadhi MS";
+const char Credits_German[] = "Von Aadhi MS \n  und Aadhi MS";
 const char Score_English[] = "Your score is: ";
 const char Score_German[] = "Dein Ergebnis ist: ";
 const char Language_English[] = "English";
@@ -81,16 +81,19 @@ const char GameOver_English[] = "Game Over!";
 const char GameOver_German[] = "Spiel vorbei!";
 const char YouLose_English[] = "You Lose";
 const char YouLose_German[] = "Du Verlierst";
+const char YouWin_English[] = "You Win!";
+const char YouWin_German[] = "Du gewinnst";
 
 
-const char *Phrases[7][2]={
+const char *Phrases[8][2]={
                            {Welcome_English, Welcome_German},//0
                            {Credits_English, Credits_German},
                            {Score_English, Score_German},//2
                            {Language_English, Language_German},
                            {Go_English, Go_German},//4
                            {GameOver_English, GameOver_German},//5
-                           {YouLose_English, YouLose_German}//6
+                           {YouLose_English, YouLose_German},//6
+                           {YouWin_English, YouWin_German}
 
 };
 
@@ -159,7 +162,7 @@ struct boss_sprite{
 
     float x; // x coordinate
     float y; // y coordinate
-    const uint8_t *images[8]; // ptr->image
+    const uint8_t *images; // ptr->image
     status_t life; // dead/alive
     uint8_t hp;
 
@@ -171,8 +174,12 @@ boss_sprite_t patt = {
     10,                         // Initial y coordinate
     yalepatt, // Image array initialization
     dead,                     // Initial status
-    20,
+    30
 };
+
+bulletsprite_t enemybullets[MAX_BULLETS];
+uint8_t enemybulletIndex = 0;
+
 
 
 void firebullet() {
@@ -259,50 +266,50 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
 
             if (data < 455) { //1
                 thrustx = 0;
-                thrusty = 1;
+                thrusty = 1.2;
                 rot = 0;
             }
             if (data >= 455 & data <= 910) { //2
-                thrustx = -0.71;
-                thrusty = 0.71;
+                thrustx = -0.85;
+                thrusty = 0.85;
                 rot = 5;
 
             }
             if (data > 910 & data <= 1365) { //3
-                thrustx = -1;
+                thrustx = -1.2;
                 thrusty = 0;
                 rot = 2;
             }
             if (data > 1365 & data <= 1820) { //4
-                 thrustx = -0.71;
-                 thrusty = -0.71;
+                 thrustx = -0.85;
+                 thrusty = -0.85;
                  rot = 4;
             }
             if (data > 1820 & data <= 2275) { //5
                  thrustx = 0;
-                 thrusty = -1;
+                 thrusty = -1.2;
                  rot = 1;
             }
             if (data > 2275 & data <= 2730) { //6
-                thrustx = 0.71;
-                thrusty = -0.71;
+                thrustx = 0.85;
+                thrusty = -0.85;
                 rot = 6;
             }
             if (data > 2730 & data <= 3185) { //7
-                thrustx = 1;
+                thrustx = 1.2;
                 thrusty = 0;
                 rot = 3;
 
             }
             if (data > 3185 & data <= 3640) { //8
-                thrustx = 0.71;
-                thrusty = 0.71;
+                thrustx = 0.85;
+                thrusty = 0.85;
                 rot = 7;
             }
 
             if (data > 3640 & data <= 4095) { //9
                 thrustx = 0;
-                thrusty = 1;
+                thrusty = 1.2;
                 rot = 0;
             }
 
@@ -310,8 +317,8 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
 
     for (uint32_t i = 0; i < MAX_BULLETS; i++){
         if (bullets[i].life == alive){
-            bullets[i].x += (bullets[i].bulthrustx);
-            bullets[i].y += (bullets[i].bulthrusty);
+            bullets[i].x += ((1/1.2)*bullets[i].bulthrustx);
+            bullets[i].y += ((1/1.2)*bullets[i].bulthrusty);
 
 
         }
@@ -373,15 +380,18 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
 
                     }
                     for (uint32_t k = 0; k < MAX_BULLETS; k++){
+                        if (bullets[k].life == alive){
                         float asteroidBulletDistance = sqrt(pow(asteroids[a].x - bullets[k].x, 2) + pow(asteroids[a].y - bullets[k].y, 2));
                         if (asteroidBulletDistance < 12){
                                                 asteroids[a].life = dead;
+                                                bullets[k].life = dead;
                                                 deleteasteroid = a;
                                                 asteroidupdate = 1;
                                                 asteroidsdefeated++;
                                                 Sound_Explosion();
 
                         }
+                    }
                     }
             }
         }
@@ -394,6 +404,41 @@ void TIMG12_IRQHandler(void){uint32_t pos,msg;
 
     }
     last0 = now0;
+
+    if (patt.life == alive){
+        float dx = (longhorn.x - patt.x);
+        float dy = (longhorn.y - patt.y);
+
+
+        patt.x += 0.008*dx;
+
+        patt.y += 0.008*dy;
+
+        float pattLonghornDistance = sqrt(pow((patt.x+15) - longhorn.x, 2) + pow((patt.y - 15) - longhorn.y, 2));
+                            if (pattLonghornDistance < 20){
+
+
+                                lives = 0;
+                                Sound_Death();
+
+                            }
+
+                            for (uint32_t k = 0; k < MAX_BULLETS; k++){
+                                if (bullets[k].life == alive){
+                                    float pattBulletDistance = sqrt(pow((patt.x+15) - bullets[k].x, 2) + pow((patt.y - 15) - bullets[k].y, 2));
+                                    if (pattBulletDistance < 20){
+                                                        patt.hp--;
+                                                        if (patt.hp%2 == 0){
+                                                            createasteroid();
+                                                        }
+                                                        bullets[k].life = dead;
+                                                        Sound_Explosion();
+
+                                    }
+                                }
+                            }
+
+    }
 
 
 
@@ -558,6 +603,35 @@ int main(void){ // final main
   TimerG12_IntArm(80000000/30,2);
   // initialize all data structures
 
+  uint32_t theSwitch = 0;
+  uint32_t starLimit = 0;
+  while (starLimit <70)
+  {
+      ST7735_DrawBitmap(randomFloat(5,120), randomFloat(5,155), star, 2, 2);
+      starLimit++;
+  }
+  ST7735_DrawBitmap(16, 70, AsteroidsMenu, 96, 10);
+  ST7735_SetCursor(3, 8);
+  ST7735_OutString("Press Any Button");
+  ST7735_DrawBitmap(16, 70, AsteroidsMenu, 96, 10);
+  ST7735_DrawBitmap(59, 115, logo0, 10, 10);
+  ST7735_DrawBitmap(10, 28, AsteroidExplode, 15, 15); // Top left
+  ST7735_DrawBitmap(103, 127, AsteroidExplode, 15, 15); // Bottom Right
+  ST7735_DrawBitmap(47, 132, AsteroidExplode, 15, 15);
+  ST7735_DrawBitmap(14, 131, Asteroid, 15, 15);
+  ST7735_DrawBitmap(101, 31, Asteroid, 15, 15);
+  ST7735_DrawBitmap(61, 37, Asteroid, 15, 15);
+
+  while(1) {
+           theSwitch = Switch_In();
+           if((theSwitch & ((1<<28) + (1<<31)) + (1<<24) + (1<<12)) != 0) {
+               break;
+           }
+       }
+
+  Clock_Delay1ms(900);
+  ST7735_FillScreen(ST7735_BLACK);
+
 
      ST7735_SetCursor(3, 5);
      ST7735_OutString("Choose Language");
@@ -569,7 +643,7 @@ int main(void){ // final main
      ST7735_OutString((char *)Phrases[3][1]);
      ST7735_SetCursor(4, 13);
      ST7735_OutString("(Down Button)");
-     uint32_t theSwitch = 0;
+     theSwitch = 0;
      uint32_t language = 0;
      while(1) {
          theSwitch = Switch_In();
@@ -583,16 +657,16 @@ int main(void){ // final main
      if((theSwitch & (1<<31)) != 0) {
          language = 1; //Dutch
      }
-     Clock_Delay1ms(2000);
+     Clock_Delay1ms(1000);
      ST7735_FillScreen(ST7735_BLACK);
 
      ST7735_SetCursor(4, 5);
      ST7735_OutString((char *)Phrases[0][language]);
-     ST7735_SetCursor(2, 8);
-     ST7735_OutString("Slidepot: <^v>");
-     ST7735_SetCursor(2, 9);
-     ST7735_OutString("move(^) shoot(>)");
-     ST7735_SetCursor(3, 12);
+     ST7735_SetCursor(4, 8);
+     ST7735_OutString("***********");
+     ST7735_SetCursor(4, 9);
+     ST7735_OutString("***********");
+     ST7735_SetCursor(2, 12);
      ST7735_OutString((char *)Phrases[1][language]);
 
      while(1) {
@@ -713,6 +787,9 @@ int main(void){ // final main
     ST7735_OutString("      ");
     longhorn.x = 60;
     longhorn.y = 100;
+    for (uint8_t j = 0; j < MAX_BULLETS; j++){
+        bullets[j].life = dead;
+    }
     ST7735_FillScreen(ST7735_BLACK);
     Clock_Delay1ms(500);
     createasteroid();
@@ -805,6 +882,9 @@ int main(void){ // final main
     ST7735_OutString("      ");
     longhorn.x = 60;
     longhorn.y = 100;
+    for (uint8_t j = 0; j < MAX_BULLETS; j++){
+            bullets[j].life = dead;
+    }
     ST7735_FillScreen(ST7735_BLACK);
     Clock_Delay1ms(500);
     createasteroid();
@@ -883,21 +963,131 @@ int main(void){ // final main
                    }
                    if (alldead == 0){
 
-                         ST7735_FillScreen(ST7735_BLACK);
-                         ST7735_SetCursor(1, 7);
+                         //ST7735_FillScreen(ST7735_BLACK);
+                         //ST7735_SetCursor(1, 7);
                          //ST7735_OutString("YOU WIN!");
-                         ST7735_OutString((char *)Phrases[5][language]);
-                         ST7735_SetCursor(1, 8);
-                         ST7735_OutString((char *)Phrases[2][language]);
-                         ST7735_SetCursor(1, 9);
-                         ST7735_OutUDec(asteroidsdefeated);
-                         Clock_Delay1ms(800000);
+                         //ST7735_OutString((char *)Phrases[7][language]);
+
+                         //ST7735_SetCursor(1, 8);
+                         //ST7735_OutString((char *)Phrases[2][language]);
+                         //ST7735_SetCursor(1, 9);
+                         //ST7735_OutUDec(asteroidsdefeated);
+                         //Clock_Delay1ms(800000);
+
+                         break;
 
 
 
                    }
 
   }
+    patt.life = alive;
+    ST7735_FillScreen(ST7735_BLACK);
+    ST7735_SetCursor(6, 7);
+    ST7735_OutString("......");
+    Clock_Delay1ms(500);
+    ST7735_OutString("      ");
+    longhorn.x = 60;
+    longhorn.y = 100;
+    for (uint8_t j = 0; j < MAX_BULLETS; j++){
+            bullets[j].life = dead;
+    }
+    ST7735_FillScreen(ST7735_BLACK);
+    Clock_Delay1ms(500);
+    asteroidIndex = 0;
+
+
+    while(1){
+    // wait for semaphore
+
+              if (patt.hp == 0){
+                  patt.life = dead;
+              }
+
+              for (uint8_t l = 0; l < MAX_ASTEROIDS; l++){
+                                if (asteroids[l].life == alive){
+                                    ST7735_DrawBitmap(asteroids[l].x, asteroids[l].y, Asteroid, 15,15);
+                                }
+                                if (asteroidupdate == 1){
+                                    ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidExplode, 15, 15);
+                                    Clock_Delay1ms(15);
+                                    Sound_Explosion();
+                                    ST7735_DrawBitmap(asteroids[deleteasteroid].x, asteroids[deleteasteroid].y, AsteroidGone, 15, 15);
+                                    asteroidupdate = 0;
+                                    ST7735_FillScreen(ST7735_BLACK);
+                                }
+
+                            }
+
+
+              ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
+              for (uint8_t j = 0; j < MAX_BULLETS; j++){
+                  if (bullets[j].life == alive){
+                      ST7735_DrawBitmap(bullets[j].x+3, bullets[j].y - 5 , bullet, 3,3);
+                  }
+
+              }
+              ST7735_DrawBitmap(patt.x, patt.y, yalepatt, 30,30);
+
+
+              if (lives == 2){
+                  LED_Off(20);
+
+
+              }
+              if (lives == 1){
+                  LED_Off(19);
+
+              }
+              if (lives == 0){
+                   LED_Off(17);
+                   LED_Off(19);
+                   LED_Off(20);
+
+                   longhorn.x = 60;
+                   longhorn.y = 100;
+                   ST7735_FillScreen(ST7735_BLACK);
+                   ST7735_SetCursor(8, 8);
+                   ST7735_OutString((char *)Phrases[5][language]);
+                   Clock_Delay1ms(500);
+                   ST7735_FillScreen(ST7735_BLACK);
+
+                   ST7735_SetCursor(8, 8);
+                   ST7735_OutString((char *)Phrases[6][language]);
+                   Clock_Delay1ms(500);
+                   ST7735_FillScreen(ST7735_BLACK);
+                   ST7735_SetCursor(2, 7);
+                   ST7735_OutString((char *)Phrases[2][language]);
+                   ST7735_SetCursor(7, 8);
+                   ST7735_OutUDec(asteroidsdefeated);
+                   while (1){
+                       ST7735_DrawBitmap(longhorn.x, longhorn.y, longhorn.images[rot], 10,10);
+                   }
+              }
+                   if (patt.life == dead){
+
+                         ST7735_FillScreen(ST7735_BLACK);
+                         longhorn.x = 60;
+                         longhorn.y = 100;
+                         ST7735_SetCursor(1, 7);
+                         ST7735_OutString((char *)Phrases[7][language]);
+
+                         ST7735_SetCursor(1, 8);
+                         ST7735_OutString((char *)Phrases[2][language]);
+                         ST7735_SetCursor(1, 9);
+                         asteroidsdefeated++;
+                         ST7735_OutUDec(asteroidsdefeated);
+                         Clock_Delay1ms(800000);
+
+
+
+
+                   }
+
+
+
+  }
+
 
 
 }
